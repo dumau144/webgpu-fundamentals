@@ -1,20 +1,17 @@
 const canvas = document.createElement("canvas");
+document.body.appendChild(canvas);
 
 const observer = new ResizeObserver((entries) => {
   canvas.width = entries[0].contentRect.width * devicePixelRatio;
   canvas.height = entries[0].contentRect.height * devicePixelRatio;
 });
-
 observer.observe(canvas);
 
-document.body.appendChild(canvas);
-
 const main = async () => {
-  const adapter = await navigator.gpu?.requestAdapter();
-  const device = await adapter?.requestDevice();
+  const adapter = await navigator.gpu!.requestAdapter();
+  const device = await adapter.requestDevice();
 
   const ctx = canvas.getContext("webgpu");
-
   ctx.configure({
     device,
     format: navigator.gpu.getPreferredCanvasFormat(),
@@ -23,9 +20,7 @@ const main = async () => {
   const module = device.createShaderModule({
     label: "Our hardcoded red triangle shaders",
     code: /*wgsl*/ `
-      @vertex fn vs(
-        @builtin(vertex_index) vertexIndex : u32
-      ) -> @builtin(position) vec4f {
+      @vertex fn vs(@builtin(vertex_index) vertexIndex : u32) -> @builtin(position) vec4f {
         let pos = array(
           vec2f( 0.0,  0.5),
           vec2f(-0.5, -0.5),
