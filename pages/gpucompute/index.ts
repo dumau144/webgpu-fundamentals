@@ -1,13 +1,18 @@
-const init = async () => {
-  const adapter = await navigator.gpu?.requestAdapter();
-  const device = await adapter?.requestDevice();
+window.onload = async () => {
+  const adapter = await navigator.gpu!.requestAdapter();
+
+  const device = await adapter.requestDevice();
 
   const module = device.createShaderModule({
-    label: 'doubling compute module',
-    code: /*wgsl*/`
-      @group(0) @binding(0) var<storage, read_write> data: array<f32>;
+    label: "doubling compute module",
+    code: /*wgsl*/ `
+      @group(0)
+      @binding(0)
+      var<storage, read_write> data: array<f32>;
 
-      @compute @workgroup_size(1) fn computeSomething(@builtin(global_invocation_id) id: vec3<u32>) {
+      @compute
+      @workgroup_size(1)
+      fn computeSomething(@builtin(global_invocation_id) id: vec3<u32>) {
         let i = id.x;
         data[i] = data[i] * 2.0;
       }
@@ -15,77 +20,83 @@ const init = async () => {
   });
 
   const pipeline = device.createComputePipeline({
-    label: 'doubling compute pipeline',
-    layout: 'auto',
+    label: "doubling compute pipeline",
+    layout: "auto",
     compute: {
       module,
-      entryPoint: 'computeSomething',
+      entryPoint: "computeSomething",
     },
   });
 
-  const input = new Float32Array([1, 3, 5]);
+  const input = new Float32Array([1, 3, 5, 4, 1.5]);
 
   const workBuffer = device.createBuffer({
-    label: 'work buffer',
+    label: "work buffer",
     size: input.byteLength,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+    usage:
+      GPUBufferUsage.STORAGE |
+      GPUBufferUsage.COPY_SRC |
+      GPUBufferUsage.COPY_DST,
   });
 
   device.queue.writeBuffer(workBuffer, 0, input);
 
   const resultBuffer = device.createBuffer({
-    label: 'result buffer',
+    label: "result buffer",
     size: input.byteLength,
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
   });
 
   const bindGroup = device.createBindGroup({
-    label: 'bindGroup for work buffer',
+    label: "bindGroup for work buffer",
     layout: pipeline.getBindGroupLayout(0),
-    entries: [
-      { binding: 0, resource: { buffer: workBuffer } },
-    ],
+    entries: [{ binding: 0, resource: { buffer: workBuffer } }],
   });
 
+  ///
+  /// Render
+  ///
+
   const encoder = device.createCommandEncoder({
-    label: 'doubling encoder',
+    label: "doubling encoder",
   });
-  const pass = encoder.beginComputePass({
-    label: 'doubling compute pass',
-  });
-  pass.setPipeline(pipeline);
-  pass.setBindGroup(0, bindGroup);
-  pass.dispatchWorkgroups(input.length);
-  pass.end();
+
+  {
+    const pass = encoder.beginComputePass({
+      label: "doubling compute pass",
+    });
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.dispatchWorkgroups(input.length);
+    pass.end();
+  }
 
   encoder.copyBufferToBuffer(workBuffer, 0, resultBuffer, 0, resultBuffer.size);
 
-  const commandBuffer = encoder.finish();
-  device.queue.submit([commandBuffer]);
+  device.queue.submit([encoder.finish()]);
+
+  ///
+  /// Download
+  ///
 
   await resultBuffer.mapAsync(GPUMapMode.READ);
-  const result = new Float32Array(resultBuffer.getMappedRange().slice(0));
+  const output = new Float32Array(resultBuffer.getMappedRange().slice(0));
   resultBuffer.unmap();
 
-  const showInput = document.createElement('div')
-  document.body.appendChild(showInput);
-  const showResult = document.createElement('div')
-  document.body.appendChild(showResult);
+  ///
+  /// Display
+  ///
 
-  showInput.innerText += 'Input: '
-
-  input.forEach(number => {
-    showInput.innerText += number + ', '
-  })
-
-  showResult.innerText += 'Input: '
-
-  result.forEach(number => {
-    showResult.innerText += number + ', '
-  })
-
-  console.log('input', input);
-  console.log('result', result);
-}
-
-init()
+  const root = document.createElement("div");
+  root.innerHTML = String.raw`
+    <div>
+      <b>Input</b>
+      ${JSON.stringify(Array.from(input), null, " ")}
+      <br/>
+      <pre>data[i] = data[i] * 2.0;</pre>
+      <b>Output</b>
+      ${JSON.stringify(Array.from(output), null, " ")}
+    </div>
+  `;
+  document.body.appendChild(root);
+};
