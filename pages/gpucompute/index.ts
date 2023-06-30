@@ -23,7 +23,7 @@ window.onload = async () => {
     label: "doubling compute pipeline",
     layout: "auto",
     compute: {
-      module,
+      module: module,
       entryPoint: "computeSomething",
     },
   });

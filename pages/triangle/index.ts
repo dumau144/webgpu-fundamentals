@@ -13,7 +13,7 @@ const main = async () => {
 
   const ctx = canvas.getContext("webgpu");
   ctx.configure({
-    device,
+    device: device,
     format: navigator.gpu.getPreferredCanvasFormat(),
   });
 
@@ -40,11 +40,11 @@ const main = async () => {
     label: "our hardcoded red triangle pipeline",
     layout: "auto",
     vertex: {
-      module,
+      module: module,
       entryPoint: "vs",
     },
     fragment: {
-      module,
+      module: module,
       entryPoint: "fs",
       targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }],
     },
