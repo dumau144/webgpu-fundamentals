@@ -21,38 +21,51 @@ window.onload = async () => {
   const module = device.createShaderModule({
     label: "Our hardcoded red triangle shaders",
     code: /*wgsl*/ `
-    struct OurVertexShaderOutput {
-      @builtin(position) position: vec4f,
-      @location(0) color: vec4f,
+    struct OurStruct {
+      color: vec4f,
+      scale: vec2f,
+      offset: vec2f,
     };
 
-      @vertex fn vs(@builtin(vertex_index) vertexIndex : u32) -> OurVertexShaderOutput {
+    @group(0) @binding(0) var<uniform> ourStruct: OurStruct;
+
+      @vertex fn vs(@builtin(vertex_index) vertexIndex : u32) -> @builtin(position) vec4f {
         let pos = array(
-          vec2f(-0.5,-0.5),
           vec2f( 0.0, 0.5),
+          vec2f(-0.5,-0.5),
           vec2f( 0.5,-0.5)
         );
 
-        var color = array(
-          vec4f(1.0, 0.0, 0.0, 1.0),
-          vec4f(0.0, 1.0, 0.0, 1.0),
-          vec4f(0.0, 0.0, 1.0, 1.0),
-        );
-
-        var vsOutput: OurVertexShaderOutput;
-        vsOutput.position = vec4f(pos[vertexIndex], 0.0, 1.0);
-        vsOutput.color = color[vertexIndex];
-        return vsOutput;
+        return vec4f(pos[vertexIndex] * ourStruct.scale + ourStruct.offset, 0.0, 1.0);
       }
 
-      @fragment fn fs(fsInput: OurVertexShaderOutput) -> @location(0) vec4f {
-        return fsInput.color;
+      @fragment fn fs() -> @location(0) vec4f {
+        return ourStruct.color;
       }
     `,
   });
 
+  const uniformBufferSize =
+    4 * 4 +
+    2 * 4 +
+    2 * 4;
+
+  const uniformBuffer = device.createBuffer({
+    size: uniformBufferSize,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
+  const uniformValues = new Float32Array(uniformBufferSize / 4);
+
+  const kColorOffset = 0;
+  const kScaleOffset = 4;
+  const kOffsetOffset = 6;
+ 
+  uniformValues.set([0, 1, 0, 1], kColorOffset);
+  uniformValues.set([-0.5, -0.25], kOffsetOffset);
+
   const pipeline = device.createRenderPipeline({
-    label: "our hardcoded RGB triangle pipeline",
+    label: "triangle with uniforms",
     layout: "auto",
     vertex: {
       module: module,
@@ -65,7 +78,18 @@ window.onload = async () => {
     },
   });
 
+  const bindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [
+      { binding: 0, resource: { buffer: uniformBuffer }},
+    ],
+  });
+
   const render = () => {
+    const aspect = canvas.width / canvas.height;
+    uniformValues.set([0.5 / aspect, 0.5], kScaleOffset);
+    device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+
     const encoder = device.createCommandEncoder({ label: "our encoder" });
 
     const pass = encoder.beginRenderPass({
@@ -80,6 +104,7 @@ window.onload = async () => {
       ],
     });
     pass.setPipeline(pipeline);
+    pass.setBindGroup(0, bindGroup);
     pass.draw(3);
     pass.end();
 
