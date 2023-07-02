@@ -1,6 +1,5 @@
 window.onload = async () => {
   const canvas = document.createElement("canvas");
-  document.body.appendChild(canvas);
 
   const observer = new ResizeObserver((entries) => {
     canvas.width = entries[0].contentRect.width * devicePixelRatio;
@@ -88,5 +87,7 @@ window.onload = async () => {
     requestAnimationFrame(render);
   };
 
+  document.body.appendChild(canvas);
+  
   requestAnimationFrame(render);
 };
